@@ -548,6 +548,15 @@
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(logEntry)
 });
+         function submitAttendance(action) {
+            // Get selected employee directly from selection
+            const select = document.getElementById('employeeSelect');
+            const currentSelected = selectedEmpId || (select ? select.value : null);
+
+            if (!currentSelected || !employees[currentSelected]) {
+                showToast('Please select a valid employee from the dropdown first.', 'error');
+                return;
+            }
 
             const emp = employees[currentSelected];
             const now = new Date();
