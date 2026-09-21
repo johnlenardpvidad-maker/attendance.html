@@ -46,12 +46,18 @@
 </head>
 <body class="bg-slate-100 font-sans min-h-screen text-slate-800 flex flex-col justify-between">
 
+
+
     <!-- Navigation Header -->
+
     <header class="bg-brand-navy text-white shadow-lg border-b-4 border-brand-orange sticky top-0 z-30">
+
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+
             <div class="flex items-center space-x-3">
-                <!-- Header Logo -->
-                <img src="logo.png" alt="LEIDEE Logo" class="bg-white p-1 rounded-xl shadow-md w-12 h-12 border border-slate-200 object-contain">
+
+                <div class="bg-white p-2 rounded-xl shadow-md flex items-center justify-center w-12 h-12 border border-slate-200">
+                </div>
                 <div>
                     <h1 class="text-base sm:text-xl font-extrabold tracking-tight uppercase text-white leading-tight">
                         LEIDEE CCTV AND NETWORK DATA SOLUTION
@@ -543,6 +549,7 @@
         }
 
         function submitAttendance(action) {
+            // Get selected employee directly from selection
             const select = document.getElementById('employeeSelect');
             const currentSelected = selectedEmpId || (select ? select.value : null);
 
@@ -570,6 +577,7 @@
 
             showToast(`${action} recorded for ${emp.name}!`, 'success');
 
+            // Reset selection interface
             selectedEmpId = null;
             document.getElementById('employeeSelect').value = '';
             document.getElementById('employeeSearch').value = '';
