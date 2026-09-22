@@ -7,8 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- QR Code / Barcode Scanner Library -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -52,10 +50,6 @@
                     <div id="clockTime" class="font-bold text-sm text-white">--:--:-- --</div>
                     <div id="clockDate" class="text-slate-300">---, --- -- ----</div>
                 </div>
-                <button type="button" id="adminNavBtn" onclick="toggleAdminView()" class="bg-brand-orange hover:bg-brand-orangehover text-white px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center space-x-2 shadow-md">
-                    <i class="fa-solid fa-user-gear"></i>
-                    <span id="adminNavText">Admin Login</span>
-                </button>
             </div>
         </div>
     </header>
@@ -65,25 +59,17 @@
 
         <div id="publicView" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Left Panel: Barcode / QR Scanner & Employee Selection -->
+            <!-- Left Panel: Employee Selection & Clock In/Out -->
             <div class="lg:col-span-5 space-y-6">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="bg-gradient-to-r from-brand-navy to-brand-navydark p-4 text-white">
                         <h2 class="text-lg font-bold flex items-center gap-2">
-                            <i class="fa-solid fa-qrcode text-brand-orange"></i> Mobile Scanner & Terminal
+                            <i class="fa-solid fa-user-check text-brand-orange"></i> Employee Terminal
                         </h2>
-                        <p class="text-xs text-slate-300">Scan employee barcode/QR or select from the list.</p>
+                        <p class="text-xs text-slate-300">Select your name to log attendance.</p>
                     </div>
 
                     <div class="p-5 space-y-4">
-                        <!-- Camera Scanner Block -->
-                        <div class="text-center">
-                            <div id="qr-reader" class="w-full bg-slate-900 rounded-lg overflow-hidden min-h-[200px] flex items-center justify-center text-white text-xs"></div>
-                            <button type="button" onclick="startScanner()" class="mt-2 bg-brand-navy text-white text-xs px-3 py-1.5 rounded font-semibold">
-                                <i class="fa-solid fa-camera mr-1"></i> Start Camera Scanner
-                            </button>
-                        </div>
-
                         <!-- Dropdown Selection -->
                         <div>
                             <label for="employeeSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
@@ -130,9 +116,9 @@
                     <div class="bg-gradient-to-r from-brand-navy to-brand-navydark p-4 text-white flex justify-between items-center">
                         <div>
                             <h2 class="text-lg font-bold flex items-center gap-2">
-                                <i class="fa-solid fa-list-check text-brand-orange"></i> Attendance History
+                                <i class="fa-solid fa-list-check text-brand-orange"></i> Live Attendance History
                             </h2>
-                            <p class="text-xs text-slate-300">Live cloud sync from all devices.</p>
+                            <p class="text-xs text-slate-300">Live cloud sync from all mobile devices.</p>
                         </div>
                         <span id="logCountBadge" class="bg-brand-orange text-white text-xs font-bold px-3 py-1 rounded-full">0 Entries</span>
                     </div>
@@ -156,63 +142,48 @@
     </main>
 
     <script>
-        // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBtWJXRvKXnnEJMjc2rsV3o5KJ6bLr69LE",
-  authDomain: "leideeattendance.firebaseapp.com",
-  projectId: "leideeattendance",
-  storageBucket: "leideeattendance.firebasestorage.app",
-  messagingSenderId: "618780574237",
-  appId: "1:618780574237:web:5d17cedca1d612a67d3cf4"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+        // --- 1. FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtWJXRvKXnnEJMjc2rsV3o5KJ6bLr69LE",
+            authDomain: "leideeattendance.firebaseapp.com",
+            databaseURL: "https://leideeattendance-default-rtdb.firebaseio.com",
+            projectId: "leideeattendance",
+            storageBucket: "leideeattendance.firebasestorage.app",
+            messagingSenderId: "618780574237",
+            appId: "1:618780574237:web:5d17cedca1d612a67d3cf4"
+        };
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // State Data
+        // Default local employee list (fallback)
         let employees = {
             "LEI-2026-001": { id: "LEI-2026-001", name: "John Lenard P. Vidad", dept: "ADMIN" },
             "LEI-2026-002": { id: "LEI-2026-002", name: "Joel R. Vidad", dept: "HEAD TECH" }
         };
         let attendanceLogs = [];
         let selectedEmpId = null;
-        let html5QrCodeScanner = null;
 
         window.addEventListener('DOMContentLoaded', () => {
-            populateEmployeeDropdown();
+            listenToRealtimeEmployees();
             listenToRealtimeLogs();
             updateClock();
             setInterval(updateClock, 1000);
         });
 
-        // --- 2. BARCODE / QR SCANNER FUNCTIONS ---
-        function startScanner() {
-            html5QrCodeScanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: { width: 250, height: 250 } });
-            html5QrCodeScanner.render(onScanSuccess);
+        // --- 2. FETCH EMPLOYEES FROM FIREBASE IN REALTIME ---
+        function listenToRealtimeEmployees() {
+            db.ref('registered_employees').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    employees = data; // Syncs registered employees across all phones and office PCs
+                }
+                populateEmployeeDropdown();
+            });
         }
 
-        function onScanSuccess(decodedText) {
-            // Check if scanned barcode matches an employee ID
-            if (employees[decodedText]) {
-                selectedEmpId = decodedText;
-                document.getElementById('employeeSelect').value = decodedText;
-                displayEmployeeCard(decodedText);
-                showToast(`Employee Matched: ${employees[decodedText].name}`, 'success');
-            } else {
-                showToast(`Unrecognized Barcode/ID: ${decodedText}`, 'error');
-            }
-        }
-
-        // --- 3. CLOUD REAL-TIME SYNCHRONIZATION ---
+        // --- 3. CLOUD REAL-TIME ATTENDANCE LOGS ---
         function listenToRealtimeLogs() {
             db.ref('attendance_logs').on('value', (snapshot) => {
                 const data = snapshot.val();
@@ -228,7 +199,7 @@ const app = initializeApp(firebaseConfig);
 
         function submitAttendance(action) {
             if (!selectedEmpId || !employees[selectedEmpId]) {
-                showToast('Please select or scan an employee first.', 'error');
+                showToast('Please select an employee name first.', 'error');
                 return;
             }
 
