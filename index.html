@@ -46,11 +46,12 @@
 </head>
 <body class="bg-slate-100 font-sans min-h-screen text-slate-800 flex flex-col justify-between">
 
-    <!-- Navigation Header -->
-    <header class="bg-brand-navy text-white shadow-lg border-b-4 border-brand-orange sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="bg-white p-2 rounded-xl shadow-md flex items-center justify-center w-12 h-12 border border-slate-200"> 
+    <!-- Navigation Header -->
+    <header class="bg-brand-navy text-white shadow-lg border-b-4 border-brand-orange sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-2 rounded-xl shadow-md flex items-center justify-center w-12 h-12 border border-slate-200"> 
+                    <i class="fa-solid fa-video text-brand-navy text-xl"></i>
                 </div>
                 <div>
                     <h1 class="text-base sm:text-xl font-extrabold tracking-tight uppercase text-white leading-tight">
@@ -133,13 +134,19 @@
                             </div>
                         </div>
 
+                        <!-- Location Warning / Info Badge -->
+                        <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[11px] flex items-center gap-2">
+                            <i class="fa-solid fa-location-dot text-amber-600 text-sm shrink-0"></i>
+                            <span>GPS location is required during Clock In and Clock Out to record employee location.</span>
+                        </div>
+
                         <!-- Clock Actions -->
-                        <div class="grid grid-cols-2 gap-3 pt-2">
-                            <button type="button" onclick="submitAttendance('TIME IN')" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
+                        <div class="grid grid-cols-2 gap-3 pt-1">
+                            <button type="button" id="btnClockIn" onclick="submitAttendance('TIME IN')" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
                                 <i class="fa-solid fa-right-to-bracket text-base"></i>
                                 <span>CLOCK IN</span>
                             </button>
-                            <button type="button" onclick="submitAttendance('TIME OUT')" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
+                            <button type="button" id="btnClockOut" onclick="submitAttendance('TIME OUT')" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
                                 <i class="fa-solid fa-right-from-bracket text-base"></i>
                                 <span>CLOCK OUT</span>
                             </button>
@@ -188,6 +195,7 @@
                                     <th class="py-3 px-4">Employee</th>
                                     <th class="py-3 px-4">Department</th>
                                     <th class="py-3 px-4">Status</th>
+                                    <th class="py-3 px-4">Location</th>
                                     <th class="py-3 px-4 text-right">Timestamp</th>
                                 </tr>
                             </thead>
@@ -285,6 +293,7 @@
                                 <th class="py-3 px-4">Employee Name</th>
                                 <th class="py-3 px-4">Department</th>
                                 <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4">Location (Lat, Long)</th>
                                 <th class="py-3 px-4 text-center">Action</th>
                             </tr>
                         </thead>
@@ -542,14 +551,60 @@
             }
         }
 
-      
-         function submitAttendance(action) {
-            // Get selected employee directly from selection
+        // Fetch User's GPS Location via standard HTML5 Geolocation API
+        function getCurrentLocation() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('Geolocation is not supported by your browser.'));
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude.toFixed(6);
+                        const lng = position.coords.longitude.toFixed(6);
+                        resolve({
+                            latitude: lat,
+                            longitude: lng,
+                            formatted: `${lat}, ${lng}`,
+                            mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`
+                        });
+                    },
+                    (error) => {
+                        let msg = 'Unable to acquire location.';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                msg = 'Location permission was denied. Location is required to log attendance.';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                msg = 'Location information is unavailable on this device.';
+                                break;
+                            case error.TIMEOUT:
+                                msg = 'Location request timed out. Please try again.';
+                                break;
+                        }
+                        reject(new Error(msg));
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            });
+        }
+
+        async function submitAttendance(action) {
             const select = document.getElementById('employeeSelect');
             const currentSelected = selectedEmpId || (select ? select.value : null);
 
             if (!currentSelected || !employees[currentSelected]) {
                 showToast('Please select a valid employee from the dropdown first.', 'error');
+                return;
+            }
+
+            showToast('Fetching current location...', 'info');
+
+            let locationData = null;
+            try {
+                locationData = await getCurrentLocation();
+            } catch (err) {
+                showToast(err.message, 'error');
                 return;
             }
 
@@ -564,13 +619,15 @@
                 name: emp.name,
                 dept: emp.dept,
                 action: action,
-                timestamp: timeString
+                timestamp: timeString,
+                location: locationData.formatted,
+                mapsUrl: locationData.mapsUrl
             };
 
             attendanceLogs.unshift(logEntry);
             saveDatabase();
 
-            showToast(`${action} recorded for ${emp.name}!`, 'success');
+            showToast(`${action} recorded for ${emp.name} with location!`, 'success');
 
             // Reset selection interface
             selectedEmpId = null;
@@ -589,7 +646,9 @@
             const filterAction = document.getElementById('publicFilterAction').value;
 
             const filtered = attendanceLogs.filter(log => {
-                const matchesSearch = log.name.toLowerCase().includes(search) || log.empId.toLowerCase().includes(search);
+                const matchesSearch = log.name.toLowerCase().includes(search) || 
+                                     log.empId.toLowerCase().includes(search) ||
+                                     (log.location && log.location.toLowerCase().includes(search));
                 const matchesAction = filterAction === 'ALL' || log.action === filterAction;
                 return matchesSearch && matchesAction;
             });
@@ -618,6 +677,11 @@
                         ${log.action === 'TIME IN' 
                             ? `<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px] inline-flex items-center gap-1"><i class="fa-solid fa-circle text-[6px]"></i> TIME IN</span>` 
                             : `<span class="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-[10px] inline-flex items-center gap-1"><i class="fa-solid fa-circle text-[6px]"></i> TIME OUT</span>`}
+                    </td>
+                    <td class="py-2.5 px-4 text-xs">
+                        ${log.mapsUrl 
+                            ? `<a href="${log.mapsUrl}" target="_blank" class="text-brand-navy hover:underline font-mono inline-flex items-center gap-1"><i class="fa-solid fa-location-dot text-brand-orange"></i> ${log.location}</a>` 
+                            : '<span class="text-slate-400">N/A</span>'}
                     </td>
                     <td class="py-2.5 px-4 text-right text-slate-500 text-[11px] font-mono">
                         ${log.timestamp}
@@ -763,7 +827,8 @@
 
             const filtered = attendanceLogs.filter(log => 
                 log.name.toLowerCase().includes(search) || 
-                log.empId.toLowerCase().includes(search)
+                log.empId.toLowerCase().includes(search) ||
+                (log.location && log.location.toLowerCase().includes(search))
             );
 
             document.getElementById('adminLogCountBadge').textContent = attendanceLogs.length;
@@ -778,6 +843,11 @@
                         ${log.action === 'TIME IN' 
                             ? `<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">TIME IN</span>` 
                             : `<span class="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-[10px]">TIME OUT</span>`}
+                    </td>
+                    <td class="py-2.5 px-4 font-mono text-[11px]">
+                        ${log.mapsUrl 
+                            ? `<a href="${log.mapsUrl}" target="_blank" class="text-brand-navy hover:underline inline-flex items-center gap-1"><i class="fa-solid fa-location-dot text-brand-orange"></i> ${log.location}</a>` 
+                            : 'N/A'}
                     </td>
                     <td class="py-2.5 px-4 text-center">
                         <button type="button" onclick="deleteSingleLog(${log.logId})" class="text-rose-600 hover:text-rose-800 p-1" title="Delete Log">
@@ -812,9 +882,11 @@
                 return;
             }
 
-            let csv = 'Timestamp,ID Number,Employee Name,Department,Action\n';
+            let csv = 'Timestamp,ID Number,Employee Name,Department,Action,Location Coordinates,Google Maps URL\n';
             attendanceLogs.forEach(log => {
-                csv += `"${log.timestamp}","${log.empId}","${log.name}","${log.dept}","${log.action}"\n`;
+                const loc = log.location || 'N/A';
+                const url = log.mapsUrl || 'N/A';
+                csv += `"${log.timestamp}","${log.empId}","${log.name}","${log.dept}","${log.action}","${loc}","${url}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv' });
