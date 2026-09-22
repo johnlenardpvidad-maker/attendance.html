@@ -136,11 +136,11 @@
 
                         <!-- Clock Actions -->
                         <div class="grid grid-cols-2 gap-3 pt-2">
-                            <button type="button" onclick="submitAttendance('TIME IN')" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
+                            <button type="button" id="btnClockIn" onclick="submitAttendance('TIME IN')" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
                                 <i class="fa-solid fa-right-to-bracket text-base"></i>
                                 <span>CLOCK IN</span>
                             </button>
-                            <button type="button" onclick="submitAttendance('TIME OUT')" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
+                            <button type="button" id="btnClockOut" onclick="submitAttendance('TIME OUT')" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
                                 <i class="fa-solid fa-right-from-bracket text-base"></i>
                                 <span>CLOCK OUT</span>
                             </button>
@@ -287,7 +287,7 @@
                                 <th class="py-3 px-4">Employee Name</th>
                                 <th class="py-3 px-4">Department</th>
                                 <th class="py-3 px-4">Status</th>
-                                <th class="py-3 px-4">Location Coordinates</th>
+                                <th class="py-3 px-4">Captured Location</th>
                                 <th class="py-3 px-4 text-center">Action</th>
                             </tr>
                         </thead>
@@ -545,24 +545,34 @@
             }
         }
 
-        // Helper function to fetch modern Browser Geolocation API
-        function getCurrentLocation() {
-            return new Promise((resolve) => {
+        // Retrieve current device GPS location automatically
+        function requireLocation() {
+            return new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
-                    resolve({ locationText: 'Not Supported', mapsUrl: null });
+                    reject('Geolocation is not supported by your browser.');
                     return;
                 }
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         const lat = position.coords.latitude.toFixed(5);
                         const lng = position.coords.longitude.toFixed(5);
-                        const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
-                        resolve({ locationText: `${lat}, ${lng}`, mapsUrl: mapsUrl });
+                        resolve({
+                            coordsText: `${lat}, ${lng}`,
+                            mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`
+                        });
                     },
                     (error) => {
-                        resolve({ locationText: 'Location Unavailable', mapsUrl: null });
+                        let errMessage = 'Location access is required to submit attendance.';
+                        if (error.code === error.PERMISSION_DENIED) {
+                            errMessage = 'Location permission denied. Please allow location access on your device/browser.';
+                        } else if (error.code === error.POSITION_UNAVAILABLE) {
+                            errMessage = 'Unable to detect location. Ensure GPS is enabled.';
+                        } else if (error.code === error.TIMEOUT) {
+                            errMessage = 'Location request timed out. Please try again.';
+                        }
+                        reject(errMessage);
                     },
-                    { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             });
         }
@@ -577,10 +587,16 @@
                 return;
             }
 
-            showToast('Fetching auto-location...', 'info');
+            showToast('Detecting location...', 'info');
 
-            // Automatically detect location
-            const locationData = await getCurrentLocation();
+            let locationInfo;
+            try {
+                // Strictly require employee location
+                locationInfo = await requireLocation();
+            } catch (err) {
+                showToast(err, 'error');
+                return; // Stop attendance processing if location fails
+            }
 
             const emp = employees[currentSelected];
             const now = new Date();
@@ -594,8 +610,8 @@
                 dept: emp.dept,
                 action: action,
                 timestamp: timeString,
-                location: locationData.locationText,
-                mapsUrl: locationData.mapsUrl
+                location: locationInfo.coordsText,
+                mapsUrl: locationInfo.mapsUrl
             };
 
             attendanceLogs.unshift(logEntry);
@@ -853,7 +869,7 @@
                 return;
             }
 
-            let csv = 'Timestamp,ID Number,Employee Name,Department,Action,Location\n';
+            let csv = 'Timestamp,ID Number,Employee Name,Department,Action,Location Coordinates\n';
             attendanceLogs.forEach(log => {
                 csv += `"${log.timestamp}","${log.empId}","${log.name}","${log.dept}","${log.action}","${log.location || 'N/A'}"\n`;
             });
