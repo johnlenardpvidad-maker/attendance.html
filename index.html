@@ -7,6 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- QR Code / Barcode Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -20,29 +25,11 @@
                             lightbg: '#f8fafc'
                         }
                     },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    }
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
                 }
             }
         }
     </script>
-    <style>
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-    </style>
 </head>
 <body class="bg-slate-100 font-sans min-h-screen text-slate-800 flex flex-col justify-between">
 
@@ -50,9 +37,6 @@
     <header class="bg-brand-navy text-white shadow-lg border-b-4 border-brand-orange sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center space-x-3">
-                <div class="bg-white p-2 rounded-xl shadow-md flex items-center justify-center w-12 h-12 border border-slate-200"> 
-                    <i class="fa-solid fa-video text-brand-navy text-xl"></i>
-                </div>
                 <div>
                     <h1 class="text-base sm:text-xl font-extrabold tracking-tight uppercase text-white leading-tight">
                         LEIDEE CCTV AND NETWORK DATA SOLUTION
@@ -63,13 +47,11 @@
                 </div>
             </div>
 
-            <!-- Header Clock and Actions -->
             <div class="flex items-center space-x-3">
                 <div id="liveClock" class="hidden sm:block text-right pr-3 border-r border-slate-600 text-xs text-slate-200">
                     <div id="clockTime" class="font-bold text-sm text-white">--:--:-- --</div>
                     <div id="clockDate" class="text-slate-300">---, --- -- ----</div>
                 </div>
-
                 <button type="button" id="adminNavBtn" onclick="toggleAdminView()" class="bg-brand-orange hover:bg-brand-orangehover text-white px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center space-x-2 shadow-md">
                     <i class="fa-solid fa-user-gear"></i>
                     <span id="adminNavText">Admin Login</span>
@@ -81,81 +63,68 @@
     <!-- Main Content Area -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-grow">
 
-        <!-- PUBLIC MODE: KIOSK ATTENDANCE TERMINAL -->
         <div id="publicView" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Left Panel: Employee Selection & Clock Actions -->
+            <!-- Left Panel: Barcode / QR Scanner & Employee Selection -->
             <div class="lg:col-span-5 space-y-6">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="bg-gradient-to-r from-brand-navy to-brand-navydark p-4 text-white">
                         <h2 class="text-lg font-bold flex items-center gap-2">
-                            <i class="fa-solid fa-clock text-brand-orange"></i> Attendance Terminal
+                            <i class="fa-solid fa-qrcode text-brand-orange"></i> Mobile Scanner & Terminal
                         </h2>
-                        <p class="text-xs text-slate-300">Select your name to log Time In or Time Out.</p>
+                        <p class="text-xs text-slate-300">Scan employee barcode/QR or select from the list.</p>
                     </div>
 
                     <div class="p-5 space-y-4">
-                        <!-- Employee Selection Dropdown -->
+                        <!-- Camera Scanner Block -->
+                        <div class="text-center">
+                            <div id="qr-reader" class="w-full bg-slate-900 rounded-lg overflow-hidden min-h-[200px] flex items-center justify-center text-white text-xs"></div>
+                            <button type="button" onclick="startScanner()" class="mt-2 bg-brand-navy text-white text-xs px-3 py-1.5 rounded font-semibold">
+                                <i class="fa-solid fa-camera mr-1"></i> Start Camera Scanner
+                            </button>
+                        </div>
+
+                        <!-- Dropdown Selection -->
                         <div>
                             <label for="employeeSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                                Select Employee <span class="text-rose-500">*</span>
+                                Select Employee
                             </label>
-                            <div class="relative">
-                                <select id="employeeSelect" onchange="handleSelectChange()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-brand-navy focus:border-brand-navy block p-3 transition-colors cursor-pointer">
-                                    <option value="">-- Choose Employee Name --</option>
-                                    <!-- Populated dynamically -->
-                                </select>
-                            </div>
+                            <select id="employeeSelect" onchange="handleSelectChange()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-3">
+                                <option value="">-- Choose Employee Name --</option>
+                            </select>
                         </div>
 
-                        <!-- Search Box Fallback -->
-                        <div>
-                            <label for="employeeSearch" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                                Or Quick Filter by Name / ID
-                            </label>
-                            <input type="text" id="employeeSearch" onkeyup="handleSearchInput()" placeholder="Type ID (e.g., LEI-2026-001) or Name..." class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs sm:text-sm rounded-lg focus:ring-2 focus:ring-brand-navy focus:border-brand-navy block p-2.5 transition-colors">
-                        </div>
-
-                        <!-- Employee Info Display Card -->
-                        <div id="empCardPreview" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 relative overflow-hidden transition-all">
+                        <!-- Employee Info Preview -->
+                        <div id="empCardPreview" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 relative overflow-hidden">
                             <div class="absolute top-0 left-0 w-1.5 h-full bg-brand-orange"></div>
-                            
                             <div class="flex items-start justify-between gap-2">
                                 <div>
                                     <h3 id="previewName" class="font-bold text-slate-900 text-base"></h3>
                                     <span id="previewDept" class="inline-block bg-brand-navy text-white text-xs font-semibold px-2.5 py-0.5 rounded-md mt-1"></span>
                                 </div>
-                                <span id="previewId" class="text-xs font-mono font-bold bg-slate-200 text-slate-700 px-2 py-1 rounded shrink-0"></span>
-                            </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-200 text-slate-600">
-                                <div><span class="font-bold text-slate-800">Contact:</span> <span id="previewContact"></span></div>
-                                <div class="sm:col-span-2"><span class="font-bold text-slate-800">Address:</span> <span id="previewAddress"></span></div>
+                                <span id="previewId" class="text-xs font-mono font-bold bg-slate-200 text-slate-700 px-2 py-1 rounded"></span>
                             </div>
                         </div>
 
-                        <!-- Clock Actions -->
+                        <!-- Action Buttons -->
                         <div class="grid grid-cols-2 gap-3 pt-2">
-                            <button type="button" id="btnClockIn" onclick="submitAttendance('TIME IN')" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
-                                <i class="fa-solid fa-right-to-bracket text-base"></i>
-                                <span>CLOCK IN</span>
+                            <button type="button" onclick="submitAttendance('TIME IN')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm">
+                                <i class="fa-solid fa-right-to-bracket"></i> CLOCK IN
                             </button>
-                            <button type="button" id="btnClockOut" onclick="submitAttendance('TIME OUT')" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm">
-                                <i class="fa-solid fa-right-from-bracket text-base"></i>
-                                <span>CLOCK OUT</span>
+                            <button type="button" onclick="submitAttendance('TIME OUT')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm">
+                                <i class="fa-solid fa-right-from-bracket"></i> CLOCK OUT
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Toast Notification Box -->
                 <div id="toastNotification" class="hidden p-4 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-md flex items-center justify-between">
                     <span id="toastText"></span>
                     <i id="toastIcon" class="fa-solid"></i>
                 </div>
             </div>
 
-            <!-- Right Panel: Public Real-time Attendance Logs -->
+            <!-- Right Panel: Real-Time Attendance Logs -->
             <div class="lg:col-span-7">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
                     <div class="bg-gradient-to-r from-brand-navy to-brand-navydark p-4 text-white flex justify-between items-center">
@@ -163,25 +132,11 @@
                             <h2 class="text-lg font-bold flex items-center gap-2">
                                 <i class="fa-solid fa-list-check text-brand-orange"></i> Attendance History
                             </h2>
-                            <p class="text-xs text-slate-300">Live activity logs saved across browser sessions.</p>
+                            <p class="text-xs text-slate-300">Live cloud sync from all devices.</p>
                         </div>
                         <span id="logCountBadge" class="bg-brand-orange text-white text-xs font-bold px-3 py-1 rounded-full">0 Entries</span>
                     </div>
 
-                    <!-- Search and Action Filter -->
-                    <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-2 justify-between items-center">
-                        <div class="relative flex-grow max-w-xs">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                            <input type="text" id="publicSearchInput" onkeyup="renderPublicLogs()" placeholder="Filter logs..." class="w-full bg-white pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-brand-navy">
-                        </div>
-                        <select id="publicFilterAction" onchange="renderPublicLogs()" class="bg-white py-1.5 px-3 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-brand-navy">
-                            <option value="ALL">All Statuses</option>
-                            <option value="TIME IN">Time In Only</option>
-                            <option value="TIME OUT">Time Out Only</option>
-                        </select>
-                    </div>
-
-                    <!-- Table Data -->
                     <div class="overflow-x-auto flex-grow max-h-[480px]">
                         <table class="w-full text-left text-xs text-slate-600">
                             <thead class="bg-slate-100 text-slate-700 uppercase font-bold sticky top-0 border-b border-slate-200">
@@ -189,416 +144,89 @@
                                     <th class="py-3 px-4">Employee</th>
                                     <th class="py-3 px-4">Department</th>
                                     <th class="py-3 px-4">Status</th>
-                                    <th class="py-3 px-4">Location</th>
                                     <th class="py-3 px-4 text-right">Timestamp</th>
                                 </tr>
                             </thead>
-                            <tbody id="publicLogTableBody" class="divide-y divide-slate-100">
-                                <!-- Dynamic rows -->
-                            </tbody>
+                            <tbody id="publicLogTableBody" class="divide-y divide-slate-100"></tbody>
                         </table>
-                        <div id="emptyLogState" class="p-8 text-center text-slate-400 hidden">
-                            <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
-                            <p class="text-xs">No attendance records found.</p>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- ADMIN MODE: MANAGEMENT DASHBOARD -->
-        <div id="adminView" class="hidden space-y-6">
-            
-            <!-- Admin Top Bar -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-wrap justify-between items-center gap-4">
-                <div class="flex items-center space-x-3">
-                    <div class="bg-brand-navy text-brand-orange p-3 rounded-xl">
-                        <i class="fa-solid fa-user-shield text-xl"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-lg font-bold text-slate-900">Administrator Dashboard</h2>
-                        <p class="text-xs text-slate-500">Manage workforce database and system logs.</p>
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" onclick="openEmployeeModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
-                        <i class="fa-solid fa-user-plus"></i> Add Employee
-                    </button>
-                    <button type="button" onclick="exportLogsCSV()" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
-                        <i class="fa-solid fa-file-csv"></i> Export CSV
-                    </button>
-                    <button type="button" onclick="clearAllLogs()" class="bg-rose-100 text-rose-700 hover:bg-rose-200 font-semibold text-xs px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5">
-                        <i class="fa-solid fa-trash-can"></i> Clear History
-                    </button>
-                    <button type="button" onclick="logoutAdmin()" class="bg-slate-200 text-slate-700 hover:bg-slate-300 font-semibold text-xs px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5">
-                        <i class="fa-solid fa-right-from-bracket"></i> Exit Admin
-                    </button>
-                </div>
-            </div>
-
-            <!-- Tabs -->
-            <div class="flex border-b border-slate-200 bg-white rounded-t-2xl px-4 pt-2">
-                <button type="button" id="tabEmpBtn" onclick="switchAdminTab('employees')" class="py-3 px-5 font-bold text-xs border-b-2 border-brand-orange text-brand-navy flex items-center gap-2">
-                    <i class="fa-solid fa-users"></i> Employee Database (<span id="empCountBadge">0</span>)
-                </button>
-                <button type="button" id="tabLogBtn" onclick="switchAdminTab('logs')" class="py-3 px-5 font-semibold text-xs text-slate-500 hover:text-slate-800 border-b-2 border-transparent flex items-center gap-2">
-                    <i class="fa-solid fa-receipt"></i> System Attendance Logs (<span id="adminLogCountBadge">0</span>)
-                </button>
-            </div>
-
-            <!-- Tab 1: Employee Management -->
-            <div id="tabEmployees" class="bg-white rounded-b-2xl shadow-sm border border-t-0 border-slate-200 p-4">
-                <div class="mb-4">
-                    <input type="text" id="empSearchInput" onkeyup="renderAdminEmployees()" placeholder="Search employee database..." class="w-full max-w-sm bg-slate-50 pl-3 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-brand-navy">
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs text-slate-600">
-                        <thead class="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-200">
-                            <tr>
-                                <th class="py-3 px-4">ID No.</th>
-                                <th class="py-3 px-4">Full Name</th>
-                                <th class="py-3 px-4">Department</th>
-                                <th class="py-3 px-4">Contact</th>
-                                <th class="py-3 px-4">Address</th>
-                                <th class="py-3 px-4 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adminEmployeeTableBody" class="divide-y divide-slate-100">
-                            <!-- Dynamic Employee Rows -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Tab 2: Logs Management -->
-            <div id="tabLogs" class="hidden bg-white rounded-b-2xl shadow-sm border border-t-0 border-slate-200 p-4">
-                <div class="mb-4">
-                    <input type="text" id="adminLogSearchInput" onkeyup="renderAdminLogs()" placeholder="Search logs..." class="w-full max-w-sm bg-slate-50 pl-3 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-brand-navy">
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs text-slate-600">
-                        <thead class="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-200">
-                            <tr>
-                                <th class="py-3 px-4">Timestamp</th>
-                                <th class="py-3 px-4">ID No.</th>
-                                <th class="py-3 px-4">Employee Name</th>
-                                <th class="py-3 px-4">Department</th>
-                                <th class="py-3 px-4">Status</th>
-                                <th class="py-3 px-4">Captured Location</th>
-                                <th class="py-3 px-4 text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adminLogTableBody" class="divide-y divide-slate-100">
-                            <!-- Dynamic Admin Logs -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </div>
-
     </main>
 
-    <!-- MODAL: ADMIN LOGIN -->
-    <div id="loginModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
-            <div class="bg-brand-navy p-6 text-white text-center relative">
-                <button type="button" onclick="closeLoginModal()" class="absolute top-4 right-4 text-slate-300 hover:text-white">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-                <div class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-2 text-brand-orange text-xl">
-                    <i class="fa-solid fa-lock"></i>
-                </div>
-                <h3 class="text-lg font-bold">Admin Login</h3>
-                <p class="text-xs text-slate-300">Sign in to manage employee data and system records.</p>
-            </div>
-
-            <form onsubmit="handleAdminLogin(event)" class="p-6 space-y-4">
-                <div id="loginErrorMsg" class="hidden bg-rose-50 text-rose-600 text-xs p-3 rounded-lg font-medium border border-rose-200">
-                    Invalid credentials. Username: <b>admin</b> | Password: <b>admin123</b>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Username</label>
-                    <input type="text" id="loginUsername" required class="w-full bg-slate-50 px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-navy">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Password</label>
-                    <input type="password" id="loginPassword" required class="w-full bg-slate-50 px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-navy">
-                </div>
-
-                <button type="submit" class="w-full bg-brand-navy hover:bg-brand-navydark text-white font-bold py-2.5 rounded-lg shadow text-sm">
-                    Authenticate
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: ADD / EDIT EMPLOYEE -->
-    <div id="employeeModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100">
-            <div class="bg-brand-navy p-4 text-white flex justify-between items-center">
-                <h3 id="modalEmpTitle" class="text-base font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-user-plus text-brand-orange"></i> Add New Employee
-                </h3>
-                <button type="button" onclick="closeEmployeeModal()" class="text-slate-300 hover:text-white">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <form onsubmit="saveEmployee(event)" class="p-6 space-y-3">
-                <input type="hidden" id="editEmpOriginalId">
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">ID Number *</label>
-                        <input type="text" id="empIdInput" required placeholder="LEI-2026-010" class="w-full bg-slate-50 px-3 py-2 text-xs rounded-lg border border-slate-300">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Department *</label>
-                        <input type="text" id="empDeptInput" required placeholder="INSTALLER" class="w-full bg-slate-50 px-3 py-2 text-xs rounded-lg border border-slate-300">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
-                    <input type="text" id="empNameInput" required placeholder="Full Name" class="w-full bg-slate-50 px-3 py-2 text-xs rounded-lg border border-slate-300">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Contact Number</label>
-                    <input type="text" id="empContactInput" placeholder="+63 9XX XXX XXXX" class="w-full bg-slate-50 px-3 py-2 text-xs rounded-lg border border-slate-300">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Address</label>
-                    <input type="text" id="empAddressInput" placeholder="Municipality, Province" class="w-full bg-slate-50 px-3 py-2 text-xs rounded-lg border border-slate-300">
-                </div>
-
-                <div class="pt-4 flex justify-end space-x-2">
-                    <button type="button" onclick="closeEmployeeModal()" class="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-brand-navy text-white text-xs font-semibold rounded-lg shadow">Save Employee</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="bg-slate-900 text-slate-400 text-xs py-4 border-t border-slate-800 mt-auto">
-        <div class="max-w-7xl mx-auto px-4 text-center flex flex-wrap justify-between items-center gap-2">
-            <div>
-                &copy; 2026 <span class="text-slate-200 font-bold">LEIDEE CCTV AND NETWORK DATA SOLUTION</span>.
-            </div>
-            <div class="text-slate-500">
-                Status: <span class="text-emerald-400 font-semibold">Active Terminal</span>
-            </div>
-        </div>
-    </footer>
-
     <script>
-        // Initial Default Database
-        const defaultEmployees = {
-            "Owner-2026-0001": { id: "Owner-2026-0001", name: "Leo B. Julian", dept: "OWNER", contact: "+63 960 637 0387", address: "Solsona, Ilocos Norte" },
-            "LEI-2026-001": { id: "LEI-2026-001", name: "John Lenard P. Vidad", dept: "ADMIN", contact: "+63 946 464 1955", address: "Marcos, Ilocos Norte" },
-            "LEI-2026-002": { id: "LEI-2026-002", name: "Joel R. Vidad", dept: "HEAD TECH", contact: "+63 960 853 1772", address: "Marcos, Ilocos Norte" },
-            "LEI-2026-003": { id: "LEI-2026-003", name: "Waldhen A. Valdez", dept: "INSTALLER", contact: "+63 936 140 1187", address: "Marcos, Ilocos Norte" },
-            "LEI-2026-004": { id: "LEI-2026-004", name: "Antanieto B. Lasala", dept: "INSTALLER", contact: "+63 969 587 2265", address: "Dingras, Ilocos Norte" },
-            "LEI-2026-005": { id: "LEI-2026-005", name: "Joemar D. Agngarayngay", dept: "INSTALLER", contact: "+63 993 524 3622", address: "Solsona, Ilocos Norte" },
-            "LEI-2026-006": { id: "LEI-2026-006", name: "Marcel Ibana", dept: "INSTALLER", contact: "+63 970 232 2162", address: "Solsona, Ilocos Norte" },
-            "LEI-2026-007": { id: "LEI-2026-007", name: "Francis Ryan Cudalina", dept: "INSTALLER", contact: "+63 956 722 0267", address: "Solsona, Ilocos Norte" },
-            "LEI-2026-008": { id: "LEI-2026-008", name: "Gerald A. Bustamante", dept: "TEAM LEAD", contact: "+63 933 565 4075", address: "Solsona, Ilocos Norte" },
-            "LEI-2026-009": { id: "LEI-2026-009", name: "Danilo Julian", dept: "INSTALLER", contact: "+63 912 304 0654", address: "Solsona, Ilocos Norte" }
+        // --- 1. FIREBASE CONFIGURATION ---
+        // Replace with your Firebase Project Configuration from https://console.firebase.google.com
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
-        // Application State
-        let employees = {};
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // State Data
+        let employees = {
+            "LEI-2026-001": { id: "LEI-2026-001", name: "John Lenard P. Vidad", dept: "ADMIN" },
+            "LEI-2026-002": { id: "LEI-2026-002", name: "Joel R. Vidad", dept: "HEAD TECH" }
+        };
         let attendanceLogs = [];
         let selectedEmpId = null;
-        let isAdminLoggedIn = false;
+        let html5QrCodeScanner = null;
 
-        // Load Application State on Launch
         window.addEventListener('DOMContentLoaded', () => {
-            loadDatabase();
+            populateEmployeeDropdown();
+            listenToRealtimeLogs();
             updateClock();
             setInterval(updateClock, 1000);
-            populateEmployeeDropdown();
-            renderPublicLogs();
-            renderAdminEmployees();
-            renderAdminLogs();
         });
 
-        function loadDatabase() {
-            try {
-                const savedEmp = localStorage.getItem('leidee_emp_db');
-                employees = savedEmp ? JSON.parse(savedEmp) : { ...defaultEmployees };
-                
-                const savedLogs = localStorage.getItem('leidee_att_logs');
-                attendanceLogs = savedLogs ? JSON.parse(savedLogs) : [];
-            } catch (e) {
-                employees = { ...defaultEmployees };
+        // --- 2. BARCODE / QR SCANNER FUNCTIONS ---
+        function startScanner() {
+            html5QrCodeScanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: { width: 250, height: 250 } });
+            html5QrCodeScanner.render(onScanSuccess);
+        }
+
+        function onScanSuccess(decodedText) {
+            // Check if scanned barcode matches an employee ID
+            if (employees[decodedText]) {
+                selectedEmpId = decodedText;
+                document.getElementById('employeeSelect').value = decodedText;
+                displayEmployeeCard(decodedText);
+                showToast(`Employee Matched: ${employees[decodedText].name}`, 'success');
+            } else {
+                showToast(`Unrecognized Barcode/ID: ${decodedText}`, 'error');
+            }
+        }
+
+        // --- 3. CLOUD REAL-TIME SYNCHRONIZATION ---
+        function listenToRealtimeLogs() {
+            db.ref('attendance_logs').on('value', (snapshot) => {
+                const data = snapshot.val();
                 attendanceLogs = [];
-            }
-        }
-
-        function saveDatabase() {
-            try {
-                localStorage.setItem('leidee_emp_db', JSON.stringify(employees));
-                localStorage.setItem('leidee_att_logs', JSON.stringify(attendanceLogs));
-            } catch (e) {
-                console.error('Storage error', e);
-            }
-        }
-
-        function updateClock() {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('en-US', { hour12: true });
-            const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-            
-            const timeEl = document.getElementById('clockTime');
-            const dateEl = document.getElementById('clockDate');
-            if (timeEl && dateEl) {
-                timeEl.textContent = timeStr;
-                dateEl.textContent = dateStr;
-            }
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toastNotification');
-            const text = document.getElementById('toastText');
-            const icon = document.getElementById('toastIcon');
-
-            text.textContent = message;
-            toast.className = `p-4 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-md flex items-center justify-between `;
-
-            if (type === 'success') {
-                toast.classList.add('bg-emerald-100', 'text-emerald-900', 'border', 'border-emerald-300');
-                icon.className = 'fa-solid fa-circle-check text-emerald-600 text-lg';
-            } else if (type === 'error') {
-                toast.classList.add('bg-rose-100', 'text-rose-900', 'border', 'border-rose-300');
-                icon.className = 'fa-solid fa-circle-exclamation text-rose-600 text-lg';
-            } else {
-                toast.classList.add('bg-sky-100', 'text-sky-900', 'border', 'border-sky-300');
-                icon.className = 'fa-solid fa-circle-info text-sky-600 text-lg';
-            }
-
-            toast.classList.remove('hidden');
-            setTimeout(() => {
-                toast.classList.add('hidden');
-            }, 3500);
-        }
-
-        function populateEmployeeDropdown() {
-            const select = document.getElementById('employeeSelect');
-            select.innerHTML = '<option value="">-- Choose Employee Name --</option>';
-
-            Object.values(employees).forEach(emp => {
-                const opt = document.createElement('option');
-                opt.value = emp.id;
-                opt.textContent = `${emp.name} (${emp.dept}) - ${emp.id}`;
-                select.appendChild(opt);
-            });
-        }
-
-        function handleSelectChange() {
-            const selectVal = document.getElementById('employeeSelect').value;
-            if (selectVal && employees[selectVal]) {
-                selectedEmpId = selectVal;
-                displayEmployeeCard(selectVal);
-            } else {
-                selectedEmpId = null;
-                document.getElementById('empCardPreview').classList.add('hidden');
-            }
-        }
-
-        function handleSearchInput() {
-            const term = document.getElementById('employeeSearch').value.trim().toLowerCase();
-            if (!term) return;
-
-            const matchKey = Object.keys(employees).find(id => {
-                const emp = employees[id];
-                return id.toLowerCase().includes(term) || emp.name.toLowerCase().includes(term);
-            });
-
-            if (matchKey) {
-                selectedEmpId = matchKey;
-                document.getElementById('employeeSelect').value = matchKey;
-                displayEmployeeCard(matchKey);
-            }
-        }
-
-        function displayEmployeeCard(empId) {
-            const preview = document.getElementById('empCardPreview');
-            if (empId && employees[empId]) {
-                const emp = employees[empId];
-                document.getElementById('previewName').textContent = emp.name;
-                document.getElementById('previewDept').textContent = emp.dept;
-                document.getElementById('previewId').textContent = emp.id;
-                document.getElementById('previewContact').textContent = emp.contact || 'N/A';
-                document.getElementById('previewAddress').textContent = emp.address || 'N/A';
-                preview.classList.remove('hidden');
-            } else {
-                preview.classList.add('hidden');
-            }
-        }
-
-        // Retrieve current device GPS location automatically
-        function requireLocation() {
-            return new Promise((resolve, reject) => {
-                if (!navigator.geolocation) {
-                    reject('Geolocation is not supported by your browser.');
-                    return;
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        attendanceLogs.unshift(data[key]);
+                    });
                 }
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const lat = position.coords.latitude.toFixed(5);
-                        const lng = position.coords.longitude.toFixed(5);
-                        resolve({
-                            coordsText: `${lat}, ${lng}`,
-                            mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`
-                        });
-                    },
-                    (error) => {
-                        let errMessage = 'Location access is required to submit attendance.';
-                        if (error.code === error.PERMISSION_DENIED) {
-                            errMessage = 'Location permission denied. Please allow location access on your device/browser.';
-                        } else if (error.code === error.POSITION_UNAVAILABLE) {
-                            errMessage = 'Unable to detect location. Ensure GPS is enabled.';
-                        } else if (error.code === error.TIMEOUT) {
-                            errMessage = 'Location request timed out. Please try again.';
-                        }
-                        reject(errMessage);
-                    },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
+                renderPublicLogs();
             });
         }
 
-        async function submitAttendance(action) {
-            // Get selected employee directly from selection
-            const select = document.getElementById('employeeSelect');
-            const currentSelected = selectedEmpId || (select ? select.value : null);
-
-            if (!currentSelected || !employees[currentSelected]) {
-                showToast('Please select a valid employee from the dropdown first.', 'error');
+        function submitAttendance(action) {
+            if (!selectedEmpId || !employees[selectedEmpId]) {
+                showToast('Please select or scan an employee first.', 'error');
                 return;
             }
 
-            showToast('Detecting location...', 'info');
-
-            let locationInfo;
-            try {
-                // Strictly require employee location
-                locationInfo = await requireLocation();
-            } catch (err) {
-                showToast(err, 'error');
-                return; // Stop attendance processing if location fails
-            }
-
-            const emp = employees[currentSelected];
+            const emp = employees[selectedEmpId];
             const now = new Date();
             const timeString = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + 
                               ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -609,281 +237,79 @@
                 name: emp.name,
                 dept: emp.dept,
                 action: action,
-                timestamp: timeString,
-                location: locationInfo.coordsText,
-                mapsUrl: locationInfo.mapsUrl
+                timestamp: timeString
             };
 
-            attendanceLogs.unshift(logEntry);
-            saveDatabase();
-
-            showToast(`${action} recorded for ${emp.name}!`, 'success');
-
-            // Reset selection interface
-            selectedEmpId = null;
-            document.getElementById('employeeSelect').value = '';
-            document.getElementById('employeeSearch').value = '';
-            document.getElementById('empCardPreview').classList.add('hidden');
-
-            renderPublicLogs();
-            renderAdminLogs();
+            // Push entry directly to cloud database
+            db.ref('attendance_logs/' + logEntry.logId).set(logEntry, (error) => {
+                if (error) {
+                    showToast('Failed to log attendance to server.', 'error');
+                } else {
+                    showToast(`${action} saved successfully for ${emp.name}!`, 'success');
+                }
+            });
         }
 
         function renderPublicLogs() {
             const tbody = document.getElementById('publicLogTableBody');
-            const emptyState = document.getElementById('emptyLogState');
-            const search = document.getElementById('publicSearchInput').value.toLowerCase();
-            const filterAction = document.getElementById('publicFilterAction').value;
+            document.getElementById('logCountBadge').textContent = `${attendanceLogs.length} Entries`;
 
-            const filtered = attendanceLogs.filter(log => {
-                const matchesSearch = log.name.toLowerCase().includes(search) || log.empId.toLowerCase().includes(search);
-                const matchesAction = filterAction === 'ALL' || log.action === filterAction;
-                return matchesSearch && matchesAction;
-            });
-
-            document.getElementById('logCountBadge').textContent = `${filtered.length} Entries`;
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = '';
-                emptyState.classList.remove('hidden');
-                return;
-            }
-
-            emptyState.classList.add('hidden');
-            tbody.innerHTML = filtered.map(log => `
-                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100">
-                    <td class="py-2.5 px-4 font-semibold text-slate-900">
-                        <div>${log.name}</div>
-                        <div class="text-[10px] text-slate-400 font-mono">${log.empId}</div>
-                    </td>
+            tbody.innerHTML = attendanceLogs.map(log => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100">
+                    <td class="py-2.5 px-4 font-semibold text-slate-900">${log.name} <div class="text-[10px] text-slate-400 font-mono">${log.empId}</div></td>
+                    <td class="py-2.5 px-4"><span class="bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded">${log.dept}</span></td>
                     <td class="py-2.5 px-4">
-                        <span class="bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded font-semibold border border-slate-200">
-                            ${log.dept}
+                        <span class="font-bold px-2 py-0.5 rounded text-[10px] ${log.action === 'TIME IN' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                            ${log.action}
                         </span>
                     </td>
-                    <td class="py-2.5 px-4">
-                        ${log.action === 'TIME IN' 
-                            ? `<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px] inline-flex items-center gap-1"><i class="fa-solid fa-circle text-[6px]"></i> TIME IN</span>` 
-                            : `<span class="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-[10px] inline-flex items-center gap-1"><i class="fa-solid fa-circle text-[6px]"></i> TIME OUT</span>`}
-                    </td>
-                    <td class="py-2.5 px-4 text-slate-600 text-[11px]">
-                        ${log.mapsUrl 
-                            ? `<a href="${log.mapsUrl}" target="_blank" class="text-brand-navy font-semibold hover:underline flex items-center gap-1"><i class="fa-solid fa-location-dot text-brand-orange"></i> ${log.location}</a>` 
-                            : `<span class="text-slate-400"><i class="fa-solid fa-location-cross"></i> ${log.location || 'N/A'}</span>`}
-                    </td>
-                    <td class="py-2.5 px-4 text-right text-slate-500 text-[11px] font-mono">
-                        ${log.timestamp}
-                    </td>
+                    <td class="py-2.5 px-4 text-right text-slate-500 font-mono text-[11px]">${log.timestamp}</td>
                 </tr>
             `).join('');
         }
 
-        function toggleAdminView() {
-            if (isAdminLoggedIn) {
-                document.getElementById('publicView').classList.remove('hidden');
-                document.getElementById('adminView').classList.add('hidden');
-                document.getElementById('adminNavText').textContent = 'Admin Login';
-                isAdminLoggedIn = false;
-            } else {
-                document.getElementById('loginModal').classList.remove('hidden');
-            }
-        }
-
-        function closeLoginModal() {
-            document.getElementById('loginModal').classList.add('hidden');
-            document.getElementById('loginErrorMsg').classList.add('hidden');
-        }
-
-        function handleAdminLogin(e) {
-            e.preventDefault();
-            const u = document.getElementById('loginUsername').value;
-            const p = document.getElementById('loginPassword').value;
-
-            if (u === 'admin' && p === 'admin123') {
-                isAdminLoggedIn = true;
-                closeLoginModal();
-                document.getElementById('publicView').classList.add('hidden');
-                document.getElementById('adminView').classList.remove('hidden');
-                document.getElementById('adminNavText').textContent = 'Exit Admin';
-                
-                document.getElementById('loginUsername').value = '';
-                document.getElementById('loginPassword').value = '';
-                showToast('Authenticated as Administrator.', 'info');
-            } else {
-                document.getElementById('loginErrorMsg').classList.remove('hidden');
-            }
-        }
-
-        function logoutAdmin() {
-            isAdminLoggedIn = false;
-            document.getElementById('adminView').classList.add('hidden');
-            document.getElementById('publicView').classList.remove('hidden');
-            document.getElementById('adminNavText').textContent = 'Admin Login';
-            showToast('Logged out of Admin Panel.', 'info');
-        }
-
-        function switchAdminTab(tab) {
-            const empTab = document.getElementById('tabEmployees');
-            const logTab = document.getElementById('tabLogs');
-            const empBtn = document.getElementById('tabEmpBtn');
-            const logBtn = document.getElementById('tabLogBtn');
-
-            if (tab === 'employees') {
-                empTab.classList.remove('hidden');
-                logTab.classList.add('hidden');
-                empBtn.className = "py-3 px-5 font-bold text-xs border-b-2 border-brand-orange text-brand-navy flex items-center gap-2";
-                logBtn.className = "py-3 px-5 font-semibold text-xs text-slate-500 hover:text-slate-800 border-b-2 border-transparent flex items-center gap-2";
-            } else {
-                logTab.classList.remove('hidden');
-                empTab.classList.add('hidden');
-                logBtn.className = "py-3 px-5 font-bold text-xs border-b-2 border-brand-orange text-brand-navy flex items-center gap-2";
-                empBtn.className = "py-3 px-5 font-semibold text-xs text-slate-500 hover:text-slate-800 border-b-2 border-transparent flex items-center gap-2";
-            }
-        }
-
-        function renderAdminEmployees() {
-            const tbody = document.getElementById('adminEmployeeTableBody');
-            const search = document.getElementById('empSearchInput').value.toLowerCase();
-            
-            const filtered = Object.values(employees).filter(emp => 
-                emp.name.toLowerCase().includes(search) || 
-                emp.id.toLowerCase().includes(search) ||
-                emp.dept.toLowerCase().includes(search)
-            );
-
-            document.getElementById('empCountBadge').textContent = Object.keys(employees).length;
-
-            tbody.innerHTML = filtered.map(emp => `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="py-3 px-4 font-mono font-bold text-brand-navy">${emp.id}</td>
-                    <td class="py-3 px-4 font-semibold text-slate-900">${emp.name}</td>
-                    <td class="py-3 px-4"><span class="bg-slate-100 text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded">${emp.dept}</span></td>
-                    <td class="py-3 px-4 font-mono text-[11px]">${emp.contact || 'N/A'}</td>
-                    <td class="py-3 px-4 text-slate-500 text-[11px]">${emp.address || 'N/A'}</td>
-                    <td class="py-3 px-4 text-center space-x-1">
-                        <button type="button" onclick="deleteEmployee('${emp.id}')" class="p-1.5 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded transition-colors" title="Delete">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function openEmployeeModal() {
-            document.getElementById('empIdInput').value = '';
-            document.getElementById('empNameInput').value = '';
-            document.getElementById('empDeptInput').value = '';
-            document.getElementById('empContactInput').value = '';
-            document.getElementById('empAddressInput').value = '';
-            document.getElementById('employeeModal').classList.remove('hidden');
-        }
-
-        function closeEmployeeModal() {
-            document.getElementById('employeeModal').classList.add('hidden');
-        }
-
-        function saveEmployee(e) {
-            e.preventDefault();
-            const newId = document.getElementById('empIdInput').value.trim();
-            const name = document.getElementById('empNameInput').value.trim();
-            const dept = document.getElementById('empDeptInput').value.trim().toUpperCase();
-            const contact = document.getElementById('empContactInput').value.trim() || 'N/A';
-            const address = document.getElementById('empAddressInput').value.trim() || 'N/A';
-
-            employees[newId] = { id: newId, name, dept, contact, address };
-            saveDatabase();
-
-            populateEmployeeDropdown();
-            renderAdminEmployees();
-            closeEmployeeModal();
-            showToast('New employee added successfully!', 'success');
-        }
-
-        function deleteEmployee(id) {
-            if (confirm(`Remove ${employees[id].name} (${id}) from database?`)) {
-                delete employees[id];
-                saveDatabase();
-                populateEmployeeDropdown();
-                renderAdminEmployees();
-                showToast('Employee removed.', 'info');
-            }
-        }
-
-        function renderAdminLogs() {
-            const tbody = document.getElementById('adminLogTableBody');
-            const search = document.getElementById('adminLogSearchInput').value.toLowerCase();
-
-            const filtered = attendanceLogs.filter(log => 
-                log.name.toLowerCase().includes(search) || 
-                log.empId.toLowerCase().includes(search)
-            );
-
-            document.getElementById('adminLogCountBadge').textContent = attendanceLogs.length;
-
-            tbody.innerHTML = filtered.map(log => `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="py-2.5 px-4 font-mono text-[11px] text-slate-500">${log.timestamp}</td>
-                    <td class="py-2.5 px-4 font-mono font-bold text-slate-800">${log.empId}</td>
-                    <td class="py-2.5 px-4 font-semibold text-slate-900">${log.name}</td>
-                    <td class="py-2.5 px-4"><span class="bg-slate-100 text-slate-700 text-[10px] font-semibold px-2 py-0.5 rounded">${log.dept}</span></td>
-                    <td class="py-2.5 px-4">
-                        ${log.action === 'TIME IN' 
-                            ? `<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">TIME IN</span>` 
-                            : `<span class="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-[10px]">TIME OUT</span>`}
-                    </td>
-                    <td class="py-2.5 px-4 text-slate-600 text-[11px]">
-                        ${log.mapsUrl 
-                            ? `<a href="${log.mapsUrl}" target="_blank" class="text-brand-navy font-semibold hover:underline flex items-center gap-1"><i class="fa-solid fa-location-dot text-brand-orange"></i> ${log.location}</a>` 
-                            : `<span class="text-slate-400">${log.location || 'N/A'}</span>`}
-                    </td>
-                    <td class="py-2.5 px-4 text-center">
-                        <button type="button" onclick="deleteSingleLog(${log.logId})" class="text-rose-600 hover:text-rose-800 p-1" title="Delete Log">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function deleteSingleLog(logId) {
-            attendanceLogs = attendanceLogs.filter(log => log.logId !== logId);
-            saveDatabase();
-            renderPublicLogs();
-            renderAdminLogs();
-            showToast('Log entry removed.', 'info');
-        }
-
-        function clearAllLogs() {
-            if (confirm('Are you sure you want to clear ALL attendance history?')) {
-                attendanceLogs = [];
-                saveDatabase();
-                renderPublicLogs();
-                renderAdminLogs();
-                showToast('All attendance records cleared.', 'info');
-            }
-        }
-
-        function exportLogsCSV() {
-            if (attendanceLogs.length === 0) {
-                showToast('No logs available to export.', 'error');
-                return;
-            }
-
-            let csv = 'Timestamp,ID Number,Employee Name,Department,Action,Location Coordinates\n';
-            attendanceLogs.forEach(log => {
-                csv += `"${log.timestamp}","${log.empId}","${log.name}","${log.dept}","${log.action}","${log.location || 'N/A'}"\n`;
+        function populateEmployeeDropdown() {
+            const select = document.getElementById('employeeSelect');
+            select.innerHTML = '<option value="">-- Choose Employee Name --</option>';
+            Object.values(employees).forEach(emp => {
+                const opt = document.createElement('option');
+                opt.value = emp.id;
+                opt.textContent = `${emp.name} (${emp.dept}) - ${emp.id}`;
+                select.appendChild(opt);
             });
+        }
 
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('hidden', '');
-            a.setAttribute('href', url);
-            a.setAttribute('download', `LEIDEE_Attendance_${new Date().toISOString().slice(0,10)}.csv`);
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            showToast('Logs exported successfully to CSV!', 'success');
+        function handleSelectChange() {
+            const selectVal = document.getElementById('employeeSelect').value;
+            selectedEmpId = selectVal || null;
+            displayEmployeeCard(selectedEmpId);
+        }
+
+        function displayEmployeeCard(empId) {
+            const preview = document.getElementById('empCardPreview');
+            if (empId && employees[empId]) {
+                const emp = employees[empId];
+                document.getElementById('previewName').textContent = emp.name;
+                document.getElementById('previewDept').textContent = emp.dept;
+                document.getElementById('previewId').textContent = emp.id;
+                preview.classList.remove('hidden');
+            } else {
+                preview.classList.add('hidden');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastText').textContent = message;
+            toast.className = `p-4 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-md flex items-center justify-between ${type === 'success' ? 'bg-emerald-100 text-emerald-900' : 'bg-rose-100 text-rose-900'}`;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3500);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clockTime').textContent = now.toLocaleTimeString('en-US', { hour12: true });
+            document.getElementById('clockDate').textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
         }
     </script>
 </body>
