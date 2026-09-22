@@ -46,11 +46,12 @@
 </head>
 <body class="bg-slate-100 font-sans min-h-screen text-slate-800 flex flex-col justify-between">
 
-    <!-- Navigation Header -->
-    <header class="bg-brand-navy text-white shadow-lg border-b-4 border-brand-orange sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="bg-white p-2 rounded-xl shadow-md flex items-center justify-center w-12 h-12 border border-slate-200"> 
+    <!-- Navigation Header -->
+    <header class="bg-brand-navy text-white shadow-lg border-b-4 border-brand-orange sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-2 rounded-xl shadow-md flex items-center justify-center w-12 h-12 border border-slate-200"> 
+                    <i class="fa-solid fa-video text-brand-navy text-xl"></i>
                 </div>
                 <div>
                     <h1 class="text-base sm:text-xl font-extrabold tracking-tight uppercase text-white leading-tight">
@@ -188,6 +189,7 @@
                                     <th class="py-3 px-4">Employee</th>
                                     <th class="py-3 px-4">Department</th>
                                     <th class="py-3 px-4">Status</th>
+                                    <th class="py-3 px-4">Location</th>
                                     <th class="py-3 px-4 text-right">Timestamp</th>
                                 </tr>
                             </thead>
@@ -285,6 +287,7 @@
                                 <th class="py-3 px-4">Employee Name</th>
                                 <th class="py-3 px-4">Department</th>
                                 <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4">Location Coordinates</th>
                                 <th class="py-3 px-4 text-center">Action</th>
                             </tr>
                         </thead>
@@ -542,8 +545,29 @@
             }
         }
 
-      
-         function submitAttendance(action) {
+        // Helper function to fetch modern Browser Geolocation API
+        function getCurrentLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve({ locationText: 'Not Supported', mapsUrl: null });
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude.toFixed(5);
+                        const lng = position.coords.longitude.toFixed(5);
+                        const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                        resolve({ locationText: `${lat}, ${lng}`, mapsUrl: mapsUrl });
+                    },
+                    (error) => {
+                        resolve({ locationText: 'Location Unavailable', mapsUrl: null });
+                    },
+                    { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+                );
+            });
+        }
+
+        async function submitAttendance(action) {
             // Get selected employee directly from selection
             const select = document.getElementById('employeeSelect');
             const currentSelected = selectedEmpId || (select ? select.value : null);
@@ -552,6 +576,11 @@
                 showToast('Please select a valid employee from the dropdown first.', 'error');
                 return;
             }
+
+            showToast('Fetching auto-location...', 'info');
+
+            // Automatically detect location
+            const locationData = await getCurrentLocation();
 
             const emp = employees[currentSelected];
             const now = new Date();
@@ -564,7 +593,9 @@
                 name: emp.name,
                 dept: emp.dept,
                 action: action,
-                timestamp: timeString
+                timestamp: timeString,
+                location: locationData.locationText,
+                mapsUrl: locationData.mapsUrl
             };
 
             attendanceLogs.unshift(logEntry);
@@ -618,6 +649,11 @@
                         ${log.action === 'TIME IN' 
                             ? `<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px] inline-flex items-center gap-1"><i class="fa-solid fa-circle text-[6px]"></i> TIME IN</span>` 
                             : `<span class="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-[10px] inline-flex items-center gap-1"><i class="fa-solid fa-circle text-[6px]"></i> TIME OUT</span>`}
+                    </td>
+                    <td class="py-2.5 px-4 text-slate-600 text-[11px]">
+                        ${log.mapsUrl 
+                            ? `<a href="${log.mapsUrl}" target="_blank" class="text-brand-navy font-semibold hover:underline flex items-center gap-1"><i class="fa-solid fa-location-dot text-brand-orange"></i> ${log.location}</a>` 
+                            : `<span class="text-slate-400"><i class="fa-solid fa-location-cross"></i> ${log.location || 'N/A'}</span>`}
                     </td>
                     <td class="py-2.5 px-4 text-right text-slate-500 text-[11px] font-mono">
                         ${log.timestamp}
@@ -779,6 +815,11 @@
                             ? `<span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">TIME IN</span>` 
                             : `<span class="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-[10px]">TIME OUT</span>`}
                     </td>
+                    <td class="py-2.5 px-4 text-slate-600 text-[11px]">
+                        ${log.mapsUrl 
+                            ? `<a href="${log.mapsUrl}" target="_blank" class="text-brand-navy font-semibold hover:underline flex items-center gap-1"><i class="fa-solid fa-location-dot text-brand-orange"></i> ${log.location}</a>` 
+                            : `<span class="text-slate-400">${log.location || 'N/A'}</span>`}
+                    </td>
                     <td class="py-2.5 px-4 text-center">
                         <button type="button" onclick="deleteSingleLog(${log.logId})" class="text-rose-600 hover:text-rose-800 p-1" title="Delete Log">
                             <i class="fa-solid fa-trash-can"></i>
@@ -812,9 +853,9 @@
                 return;
             }
 
-            let csv = 'Timestamp,ID Number,Employee Name,Department,Action\n';
+            let csv = 'Timestamp,ID Number,Employee Name,Department,Action,Location\n';
             attendanceLogs.forEach(log => {
-                csv += `"${log.timestamp}","${log.empId}","${log.name}","${log.dept}","${log.action}"\n`;
+                csv += `"${log.timestamp}","${log.empId}","${log.name}","${log.dept}","${log.action}","${log.location || 'N/A'}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv' });
